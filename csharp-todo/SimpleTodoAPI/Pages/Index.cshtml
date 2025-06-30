@@ -1,0 +1,46 @@
+@page
+@model SimpleTodoAPI.Pages.IndexModel
+
+<div class="row">
+    <div class="col-md-8">
+        <h2>Todo List</h2>
+        
+        @if (!Model.Todos.Any())
+        {
+            <div class="alert alert-info">
+                <p>No todos yet! <a asp-page="/Todos/Create" class="btn btn-primary btn-sm">Create your first todo</a></p>
+            </div>
+        }
+        else
+        {
+            <div class="mb-3">
+                <a asp-page="/Todos/Create" class="btn btn-success">Add New Todo</a>
+            </div>
+            
+            <div class="list-group">
+                @foreach (var todo in Model.Todos)
+                {
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            @if (todo.Completed)
+                            {
+                                <s class="text-muted">@todo.Title</s>
+                                <span class="badge bg-success ms-2">Completed</span>
+                            }
+                            else
+                            {
+                                @todo.Title
+                                <span class="badge bg-warning ms-2">Pending</span>
+                            }
+                            <small class="text-muted d-block">Created: @todo.CreatedAt.ToString("yyyy-MM-dd HH:mm")</small>
+                        </div>
+                        <div>
+                            <a asp-page="/Todos/Edit" asp-route-id="@todo.Id" class="btn btn-outline-primary btn-sm">Edit</a>
+                            <a asp-page="/Todos/Delete" asp-route-id="@todo.Id" class="btn btn-outline-danger btn-sm">Delete</a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
