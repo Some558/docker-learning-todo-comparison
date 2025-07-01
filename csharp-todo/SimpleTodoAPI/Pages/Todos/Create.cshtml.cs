@@ -16,11 +16,12 @@ namespace SimpleTodoAPI.Pages.Todos
 
         public IActionResult OnGet()
         {
+            Todo = new Todo(); // モデルを初期化
             return Page();
         }
 
         [BindProperty]
-        public Todo Todo { get; set; } = default!;
+        public Todo Todo { get; set; } = new Todo(); // デフォルト値を設定
 
         public async Task<IActionResult> OnPostAsync()
         {
