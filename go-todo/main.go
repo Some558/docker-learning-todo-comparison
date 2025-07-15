@@ -320,6 +320,10 @@ func main() {
 	http.HandleFunc("/add", addHandler)        // Todo追加
 	http.HandleFunc("/toggle/", toggleHandler) // 完了切り替え
 	http.HandleFunc("/delete/", deleteHandler) // Todo削除
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	}) // ヘルスチェック（Docker用）
 
 	fmt.Println("🚀 Go Todo Server (Simple Version) starting on :8080")
 	fmt.Printf("📝 Initial todos: %d\n", len(getTodos()))

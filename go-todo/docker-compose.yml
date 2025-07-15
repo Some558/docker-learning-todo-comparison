@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # Go Todo App
+  go-todo:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-todo-app
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - todo-network
+
+  # 性能テスト用 - 負荷生成
+  load-test:
+    image: williamyeh/wrk
+    container_name: load-tester
+    depends_on:
+      - go-todo
+    command: >
+      sh -c "
+        sleep 15 &&
+        echo 'Starting load test for Go Todo...' &&
+        wrk -t12 -c400 -d30s --latency http://go-todo:8080/ > /tmp/go-results.txt &&
+        cat /tmp/go-results.txt
+      "
+    networks:
+      - todo-network
+    profiles:
+      - test
+
+networks:
+  todo-network:
+    driver: bridge
