@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -30,6 +32,8 @@ func LoadConfig() *Config {
 		DBName:     getEnv("DB_NAME", "todoapp"),
 		DBSSLMode:  getEnv("DB_SSL_MODE", "disable"),
 	}
+
+	return config
 }
 
 func getEnv(key, defaultValue string) string {
