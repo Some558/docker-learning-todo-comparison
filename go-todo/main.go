@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"go-todo-app/config"
 	"html/template"
 	"log"
 	"net/http"
@@ -311,6 +312,8 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 
 // メイン関数
 func main() {
+	cfg := config.LoadConfig()
+
 	// 初期データを追加（デモ用）
 	createTodo("Go言語を学習する")
 	createTodo("シンプルなTodoアプリを作る")
@@ -325,9 +328,14 @@ func main() {
 		w.Write([]byte("OK"))
 	}) // ヘルスチェック（Docker用）
 
-	fmt.Println("🚀 Go Todo Server (Simple Version) starting on :8080")
-	fmt.Printf("📝 Initial todos: %d\n", len(getTodos()))
-	fmt.Println("🌐 Open http://localhost:8080 in your browser")
+	port := cfg.Port
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	fmt.Printf("🚀 Go Todo Server starting on :%s\n", port)
+	fmt.Printf("📝 Initial todos: %d\n", len(getTodos()))
+	fmt.Printf("🌐 Open http://localhost:%s in your browser\n", port)
+	fmt.Printf("⚙️  Using config: DB=%s@%s:%s/%s\n",
+		cfg.DBUser, cfg.DBHost, cfg.DBPort, cfg.DBName)
+
+	// 設定されたポートでサーバー起動
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
