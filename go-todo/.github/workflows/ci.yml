@@ -1,0 +1,177 @@
+# .github/workflows/ci.yml
+# Basic CI Pipeline for Go Todo App
+
+name: CI Pipeline
+
+# いつ実行するか
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+# 実行するジョブ
+jobs:
+  # ジョブ1: Go アプリケーションのテスト・ビルド
+  test-and-build:
+    name: Test and Build Go App
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. ソースコードをチェックアウト
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Go環境のセットアップ
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    # 3. 依存関係のキャッシュ
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    # 4. 依存関係のダウンロード
+    - name: Download dependencies
+      run: go mod download
+
+    # 5. 依存関係の検証
+    - name: Verify dependencies
+      run: go mod verify
+
+    # 6. コードフォーマットチェック
+    - name: Check code format
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "Code is not formatted properly:"
+          gofmt -s -l .
+          exit 1
+        fi
+
+    # 7. 静的解析（vet）
+    - name: Run go vet
+      run: go vet ./...
+
+    # 8. テスト実行（今後追加予定）
+    - name: Run tests
+      run: |
+        echo "Tests will be added in future iterations"
+        # go test -v ./...
+
+    # 9. ビルド実行
+    - name: Build application
+      run: |
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+          -ldflags='-w -s -extldflags "-static"' \
+          -a -installsuffix cgo \
+          -trimpath \
+          -tags 'netgo osusergo' \
+          -o main .
+
+    # 10. ビルド成果物の確認
+    - name: Check build artifact
+      run: |
+        ls -lh main
+        file main || echo "file command not available"
+
+  # ジョブ2: Docker イメージのビルド・検証
+  docker-build:
+    name: Build and Test Docker Image
+    runs-on: ubuntu-latest
+    needs: test-and-build  # test-and-buildが成功した場合のみ実行
+
+    steps:
+    # 1. ソースコードをチェックアウト
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Docker Buildx のセットアップ（高度なビルド機能用）
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    # 3. Dockerイメージのビルド
+    - name: Build Docker image
+      run: |
+        docker build -t go-todo:ci-test .
+
+    # 4. イメージサイズの確認
+    - name: Check Docker image size
+      run: |
+        echo "=== Docker Image Size ==="
+        docker images go-todo:ci-test
+
+    # 5. イメージの脆弱性チェック（基本版）
+    - name: Run basic security scan
+      run: |
+        echo "=== Basic Security Check ==="
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          -v $(pwd):/src \
+          aquasecurity/trivy:latest image go-todo:ci-test
+
+    # 6. コンテナの起動テスト
+    - name: Test container startup
+      run: |
+        echo "=== Container Startup Test ==="
+        # バックグラウンドでコンテナ起動
+        docker run -d --name test-container \
+          -p 8080:8080 \
+          -e DB_HOST=localhost \
+          -e DB_PORT=5432 \
+          -e DB_USER=testuser \
+          -e DB_PASSWORD=testpass \
+          -e DB_NAME=testdb \
+          go-todo:ci-test
+        
+        # 起動確認（簡易版）
+        sleep 5
+        
+        # コンテナのログ確認
+        echo "Container logs:"
+        docker logs test-container
+        
+        # クリーンアップ
+        docker stop test-container
+        docker rm test-container
+
+  # ジョブ3: コード品質チェック
+  quality-check:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. ソースコードをチェックアウト
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Go環境のセットアップ
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    # 3. golangci-lint のインストール・実行
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
+
+    # 4. ファイルサイズチェック
+    - name: Check file sizes
+      run: |
+        echo "=== Large Files Check ==="
+        find . -type f -size +1M -not -path "./.git/*" -not -path "./vendor/*" || true
+
+    # 5. セキュリティ面のチェック
+    - name: Security check with gosec
+      run: |
+        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        gosec ./... || echo "Security issues found - review required"
