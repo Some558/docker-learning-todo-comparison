@@ -114,12 +114,13 @@ jobs:
         echo "=== Docker Image Size ==="
         docker images go-todo:ci-test
 
-    # 5. イメージの脆弱性チェック（基本版）
-    - name: Run basic security scan
-      run: |
-        echo "=== Basic Security Check ==="
-        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasecurity/trivy:latest image go-todo:ci-test
+    # 5. セキュリティスキャン（GitHub Action版）
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'go-todo:ci-test'
+        format: 'table'
+        exit-code: '0'  # 脆弱性があっても失敗させない（警告のみ）
 
     # 6. コンテナの起動テスト（データベース接続なしで簡易テスト）
     - name: Test container startup
