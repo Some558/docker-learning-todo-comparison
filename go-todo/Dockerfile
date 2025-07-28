@@ -1,62 +1,43 @@
-# Go Todo App - Alpine版 Dockerfile（学習最適化版）
+# Dockerfile.level2 - Distroless版
+# 目標: 55.4MB → 25MB（劇的軽量化）
 
 # ===== Build Stage =====
 FROM golang:1.21-alpine AS builder
 
-# セキュリティ＆開発に必要なパッケージを追加
-RUN apk add --no-cache \
-    git \
-    ca-certificates \
-    tzdata
-
-# 作業ディレクトリを設定
 WORKDIR /app
 
-# Go modulesファイルを先にコピー（レイヤーキャッシュ最適化）
+# Go modulesを先にコピー
 COPY go.mod go.sum ./
 
-# 依存関係をダウンロード＆検証
+# 依存関係をダウンロード
 RUN go mod download && go mod verify
 
 # ソースコードをコピー
 COPY . .
 
-# 静的バイナリをビルド
+# 完全静的バイナリビルド（Distroless対応）
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags='-w -s' \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -trimpath \
+    -tags 'netgo osusergo' \
     -o main .
 
-# ===== Runtime Stage =====
-FROM alpine:latest
+# バイナリサイズ確認
+RUN ls -lh main
 
-# ランタイムに必要なパッケージを追加
-RUN apk add --no-cache \
-    ca-certificates \
-    wget \
-    curl \
-    tzdata
+# ===== Distroless Runtime Stage =====
+FROM gcr.io/distroless/static:nonroot
 
-# セキュリティ：非rootユーザーを作成
-RUN addgroup -S appuser && adduser -S appuser -G appuser
+# CA証明書をコピー（HTTPS通信用）
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# 作業ディレクトリを設定
-WORKDIR /app
+# アプリケーションバイナリをコピー
+COPY --from=builder /app/main /app/main
 
-# ビルドステージから実行ファイルをコピー
-COPY --from=builder /app/main .
-
-# ファイルの所有者を変更
-RUN chown -R appuser:appuser /app
-
-# 非rootユーザーに切り替え
-USER appuser
-
-# アプリケーションが使用するポートを公開
 EXPOSE 8080
 
-# ヘルスチェックを設定
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+# nonrootユーザーで実行（セキュア）
+USER 65532:65532
 
-# アプリケーションを起動
-CMD ["./main"]
+ENTRYPOINT ["/app/main"]
