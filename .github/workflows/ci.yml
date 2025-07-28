@@ -1,18 +1,14 @@
 # .github/workflows/ci.yml
-# サブディレクトリ対応版 CI Pipeline（修正版）
+# テスト用：パストリガーを一時的に削除
 
 name: Go Todo CI Pipeline
 
-# go-todoディレクトリに変更があった時のみ実行
+# すべてのpushで実行（テスト用）
 on:
   push:
     branches: [ main, develop ]
-    paths:
-      - 'go-todo/**'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'go-todo/**'
 
 jobs:
   # ジョブ1: Go アプリケーションのテスト・ビルド
